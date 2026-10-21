@@ -45,12 +45,15 @@ class RemoteAuthService implements AuthService {
     required String email,
     required String password,
     String otp = '',
+    String confirmPassword = '',
   }) =>
       _guard(() async => _user(await _api.post('/api/auth/register', body: {
             'fullName': name.trim(),
             'email': email.trim(),
             'password': password,
             'otp': otp.trim(),
+            // Tên khóa phải trùng RegisterRequest của backend.
+            'confirmPassword': confirmPassword,
           })));
 
   @override

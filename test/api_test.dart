@@ -130,6 +130,20 @@ void main() {
     });
   });
 
+  test('đăng ký gửi đủ confirmPassword và otp lên server', () async {
+    String? body;
+    final api = _api(
+      _ok({'token': 't', 'id': 'u1', 'fullName': 'A', 'email': 'a@b.com', 'currentStreak': 0}),
+      onRequest: (r) => body = r.body,
+    );
+    await RemoteAuthService(api).register(
+        name: 'A', email: 'a@b.com', password: '123456', otp: '654321', confirmPassword: '123456');
+    final json = jsonDecode(body!) as Map<String, dynamic>;
+    expect(json['confirmPassword'], '123456');
+    expect(json['otp'], '654321');
+    expect(json['fullName'], 'A');
+  });
+
   group('RemoteQuizRepository / LibraryProvider', () {
     test('submit trả về streak mới', () async {
       final api = _api(_ok({'updatedStreak': 6, 'scorePercentage': 80.0}));

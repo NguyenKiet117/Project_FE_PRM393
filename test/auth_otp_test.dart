@@ -8,6 +8,7 @@ import 'package:smartquiz/services/auth_service.dart';
 class _OtpService extends MockAuthService {
   final sent = <String>[];
   String? usedOtp;
+  String? usedConfirm;
 
   @override
   bool get requiresOtp => true;
@@ -21,14 +22,21 @@ class _OtpService extends MockAuthService {
     required String email,
     required String password,
     String otp = '',
+    String confirmPassword = '',
   }) {
     usedOtp = otp;
-    return super.register(name: name, email: email, password: password, otp: otp);
+    usedConfirm = confirmPassword;
+    return super.register(
+        name: name,
+        email: email,
+        password: password,
+        otp: otp,
+        confirmPassword: confirmPassword);
   }
 }
 
 Future<void> _open(WidgetTester t, _OtpService svc) async {
-  t.view.physicalSize = const Size(1080, 2600);
+  t.view.physicalSize = const Size(1080, 3600);
   t.view.devicePixelRatio = 3;
   addTearDown(t.view.reset);
   await t.pumpWidget(ChangeNotifierProvider(
@@ -71,11 +79,13 @@ void main() {
     await t.enterText(find.byKey(const Key('auth_name')), 'Nguyen Van A');
     await t.enterText(find.byKey(const Key('auth_email')), 'a@b.com');
     await t.enterText(find.byKey(const Key('auth_password')), '123456');
+    await t.enterText(find.byKey(const Key('auth_confirm')), '123456');
     await t.enterText(find.byKey(const Key('auth_otp')), '654321');
     await t.tap(find.byKey(const Key('auth_submit')));
     await t.pump();
     await t.pump(const Duration(seconds: 1));
     expect(svc.usedOtp, '654321');
+    expect(svc.usedConfirm, '123456');
   });
 
   testWidgets('OTP thiếu số -> báo lỗi', (t) async {
@@ -84,6 +94,7 @@ void main() {
     await t.enterText(find.byKey(const Key('auth_name')), 'Nguyen Van A');
     await t.enterText(find.byKey(const Key('auth_email')), 'a@b.com');
     await t.enterText(find.byKey(const Key('auth_password')), '123456');
+    await t.enterText(find.byKey(const Key('auth_confirm')), '123456');
     await t.enterText(find.byKey(const Key('auth_otp')), '123');
     await t.tap(find.byKey(const Key('auth_submit')));
     await t.pump();

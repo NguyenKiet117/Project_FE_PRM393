@@ -17,9 +17,14 @@ class AuthProvider extends ChangeNotifier {
   Future<bool> signIn(String email, String password) =>
       _run(() async => user = await _service.signIn(email: email, password: password));
 
-  Future<bool> register(String name, String email, String password, {String otp = ''}) =>
+  Future<bool> register(String name, String email, String password,
+          {String otp = '', String confirmPassword = ''}) =>
       _run(() async => user = await _service.register(
-          name: name, email: email, password: password, otp: otp));
+          name: name,
+          email: email,
+          password: password,
+          otp: otp,
+          confirmPassword: confirmPassword));
 
   Future<void> signOut() async {
     await _service.signOut();

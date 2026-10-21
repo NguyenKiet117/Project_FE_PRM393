@@ -7,7 +7,7 @@ import 'package:smartquiz/screens/auth_screen.dart';
 import 'package:smartquiz/services/auth_service.dart';
 
 Future<AuthProvider> _pump(WidgetTester tester) async {
-  tester.view.physicalSize = const Size(1080, 2600); // màn hình điện thoại dài
+  tester.view.physicalSize = const Size(1080, 3600); // màn hình điện thoại dài
   tester.view.devicePixelRatio = 3;
   addTearDown(tester.view.reset);
   final provider = AuthProvider(MockAuthService());
@@ -59,10 +59,33 @@ void main() {
       await tester.enterText(find.byKey(const Key('auth_name')), 'Nguyen Van A');
       await tester.enterText(find.byKey(const Key('auth_email')), 'a@b.com');
       await tester.enterText(find.byKey(const Key('auth_password')), '123456');
+      await tester.enterText(find.byKey(const Key('auth_confirm')), '123456');
       await tester.tap(find.byKey(const Key('auth_submit')));
       await tester.pump();
       await tester.pump(const Duration(seconds: 1));
       expect(p.user?.name, 'Nguyen Van A');
+    });
+
+    testWidgets('xác nhận mật khẩu không khớp -> báo lỗi, không đăng ký', (tester) async {
+      final p = await _pump(tester);
+      await tester.tap(find.byKey(const Key('tab_signup')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const Key('auth_name')), 'Nguyen Van A');
+      await tester.enterText(find.byKey(const Key('auth_email')), 'a@b.com');
+      await tester.enterText(find.byKey(const Key('auth_password')), '123456');
+      await tester.enterText(find.byKey(const Key('auth_confirm')), '654321');
+      await tester.tap(find.byKey(const Key('auth_submit')));
+      await tester.pump();
+      expect(find.text('Mật khẩu xác nhận không khớp'), findsOneWidget);
+      expect(p.user, isNull);
+    });
+
+    testWidgets('ô xác nhận mật khẩu chỉ hiện ở tab Tạo tài khoản', (tester) async {
+      await _pump(tester);
+      expect(find.byKey(const Key('auth_confirm')), findsNothing);
+      await tester.tap(find.byKey(const Key('tab_signup')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('auth_confirm')), findsOneWidget);
     });
   });
 }

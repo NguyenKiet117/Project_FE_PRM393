@@ -17,6 +17,7 @@ class _AuthScreenState extends State<AuthScreen> {
   final _email = TextEditingController();
   final _password = TextEditingController();
   final _otp = TextEditingController();
+  final _confirm = TextEditingController();
   bool _isLogin = true;
   bool _obscure = true;
 
@@ -26,6 +27,7 @@ class _AuthScreenState extends State<AuthScreen> {
     _email.dispose();
     _password.dispose();
     _otp.dispose();
+    _confirm.dispose();
     super.dispose();
   }
 
@@ -57,7 +59,8 @@ class _AuthScreenState extends State<AuthScreen> {
     final auth = context.read<AuthProvider>();
     final ok = _isLogin
         ? await auth.signIn(_email.text, _password.text)
-        : await auth.register(_name.text, _email.text, _password.text, otp: _otp.text);
+        : await auth.register(_name.text, _email.text, _password.text,
+            otp: _otp.text, confirmPassword: _confirm.text);
     if (!ok && mounted) _toast(auth.error ?? 'Lỗi');
     // Thành công: main.dart tự chuyển sang Home vì user != null.
   }
@@ -149,7 +152,11 @@ class _AuthScreenState extends State<AuthScreen> {
                               key: const Key('auth_password'),
                               controller: _password,
                               obscureText: _obscure,
-                              onFieldSubmitted: (_) => _submit(),
+                              textInputAction:
+                                  _isLogin ? TextInputAction.done : TextInputAction.next,
+                              onFieldSubmitted: (_) {
+                                if (_isLogin) _submit();
+                              },
                               decoration: InputDecoration(
                                 prefixIcon: const Icon(Icons.lock_outline),
                                 hintText: '••••••••',
@@ -163,6 +170,21 @@ class _AuthScreenState extends State<AuthScreen> {
                               validator: Validators.password,
                             ),
                           ),
+                          if (!_isLogin)
+                            _Labeled(
+                              label: 'Xác nhận mật khẩu',
+                              child: TextFormField(
+                                key: const Key('auth_confirm'),
+                                controller: _confirm,
+                                obscureText: _obscure,
+                                textInputAction: TextInputAction.next,
+                                decoration: const InputDecoration(
+                                  prefixIcon: Icon(Icons.lock_reset),
+                                  hintText: '••••••••',
+                                ),
+                                validator: Validators.confirm(() => _password.text),
+                              ),
+                            ),
                           if (!_isLogin && requiresOtp)
                             _Labeled(
                               label: 'Mã OTP (gửi qua email)',

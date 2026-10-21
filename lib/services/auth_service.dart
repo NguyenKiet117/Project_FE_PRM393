@@ -40,6 +40,7 @@ abstract class AuthService {
     required String email,
     required String password,
     String otp = '',
+    String confirmPassword = '',
   });
   Future<void> signOut();
 }
@@ -73,6 +74,7 @@ class MockAuthService implements AuthService {
     required String email,
     required String password,
     String otp = '',
+    String confirmPassword = '',
   }) async {
     await Future.delayed(const Duration(milliseconds: 800));
     final key = email.trim().toLowerCase();
