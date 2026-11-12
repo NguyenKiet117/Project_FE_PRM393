@@ -12,10 +12,10 @@ class AppUser {
     this.token,
   });
 
-  AppUser copyWith({int? streak}) => AppUser(
+  AppUser copyWith({int? streak, String? name, String? email}) => AppUser(
         id: id,
-        name: name,
-        email: email,
+        name: name ?? this.name,
+        email: email ?? this.email,
         streak: streak ?? this.streak,
         token: token,
       );
@@ -28,34 +28,24 @@ class AuthException implements Exception {
   String toString() => message;
 }
 
-/// HỢP ĐỒNG giữa UI và backend. Có 2 cách cài: Mock (offline) và Remote (REST API).
+/// HỢP ĐỒNG giữa UI và backend.
 abstract class AuthService {
-  /// true nếu đăng ký cần mã OTP gửi qua email (backend thật).
-  bool get requiresOtp;
-
-  Future<void> sendOtp({required String email});
   Future<AppUser> signIn({required String email, required String password});
   Future<AppUser> register({
     required String name,
     required String email,
     required String password,
-    String otp = '',
     String confirmPassword = '',
   });
+  Future<AppUser> fetchProfile(String userId);
   Future<void> signOut();
 }
 
 /// Bản giả lập trong bộ nhớ để chạy & demo UI khi không có mạng.
 class MockAuthService implements AuthService {
-  final Map<String, Map<String, String>> _db = {
-    'test@quiz.com': {'name': 'Demo User', 'password': '123456'},
+  final Map<String, Map<String, dynamic>> _db = {
+    'test@quiz.com': {'name': 'Demo User', 'password': '123456', 'streak': 0},
   };
-
-  @override
-  bool get requiresOtp => false;
-
-  @override
-  Future<void> sendOtp({required String email}) async {}
 
   @override
   Future<AppUser> signIn({required String email, required String password}) async {
@@ -65,7 +55,12 @@ class MockAuthService implements AuthService {
     if (u == null || u['password'] != password) {
       throw const AuthException('Email hoặc mật khẩu không đúng');
     }
-    return AppUser(id: key, name: u['name']!, email: key);
+    return AppUser(
+      id: key,
+      name: u['name'] as String,
+      email: key,
+      streak: (u['streak'] as int?) ?? 0,
+    );
   }
 
   @override
@@ -73,14 +68,27 @@ class MockAuthService implements AuthService {
     required String name,
     required String email,
     required String password,
-    String otp = '',
     String confirmPassword = '',
   }) async {
     await Future.delayed(const Duration(milliseconds: 800));
     final key = email.trim().toLowerCase();
     if (_db.containsKey(key)) throw const AuthException('Email đã được đăng ký');
-    _db[key] = {'name': name.trim(), 'password': password};
+    _db[key] = {'name': name.trim(), 'password': password, 'streak': 0};
     return AppUser(id: key, name: name.trim(), email: key);
+  }
+
+  @override
+  Future<AppUser> fetchProfile(String userId) async {
+    final u = _db[userId];
+    if (u == null) {
+      return AppUser(id: userId, name: 'User', email: userId);
+    }
+    return AppUser(
+      id: userId,
+      name: u['name'] as String,
+      email: userId,
+      streak: (u['streak'] as int?) ?? 0,
+    );
   }
 
   @override

@@ -25,7 +25,7 @@ Map<String, dynamic> _ok(Object? data) =>
 
 class _FailingRepo extends FakeQuizRepository {
   @override
-  Future<List<QuizSet>> fetchQuizzes() async =>
+  Future<List<QuizSet>> fetchQuizzes({String? category, String? difficulty, String? search}) async =>
       throw const ApiException('Khong ket noi duoc');
 }
 
@@ -130,18 +130,64 @@ void main() {
     });
   });
 
-  test('đăng ký gửi đủ confirmPassword và otp lên server', () async {
+  test('đăng ký gửi đủ confirmPassword lên server không cần otp', () async {
     String? body;
     final api = _api(
       _ok({'token': 't', 'id': 'u1', 'fullName': 'A', 'email': 'a@b.com', 'currentStreak': 0}),
       onRequest: (r) => body = r.body,
     );
     await RemoteAuthService(api).register(
-        name: 'A', email: 'a@b.com', password: '123456', otp: '654321', confirmPassword: '123456');
+        name: 'A', email: 'a@b.com', password: '123456', confirmPassword: '123456');
     final json = jsonDecode(body!) as Map<String, dynamic>;
     expect(json['confirmPassword'], '123456');
-    expect(json['otp'], '654321');
+    expect(json['otp'], isNull);
     expect(json['fullName'], 'A');
+  });
+
+  test('createQuiz gửi JSON tạo bộ đề thủ công lên server', () async {
+    String? body;
+    final api = _api(
+      _ok({
+        'id': 'q_new',
+        'title': 'New Quiz',
+        'category': 'PRM393',
+        'description': 'Desc',
+        'timeLimitMinutes': 15,
+        'difficulty': 'MEDIUM',
+        'totalQuestions': 1,
+        'questions': [
+          {
+            'id': 'q1',
+            'questionText': 'Question 1',
+            'optionA': 'Opt A',
+            'optionB': 'Opt B',
+            'correctAnswer': 'A',
+          }
+        ]
+      }),
+      onRequest: (r) => body = r.body,
+    );
+    final quiz = await RemoteQuizRepository(api).createQuiz(
+      title: 'New Quiz',
+      category: 'PRM393',
+      description: 'Desc',
+      timeLimitMinutes: 15,
+      difficulty: 'MEDIUM',
+      questions: [
+        {
+          'questionText': 'Question 1',
+          'optionA': 'Opt A',
+          'optionB': 'Opt B',
+          'correctAnswer': 'A',
+        }
+      ],
+    );
+    expect(quiz.id, 'q_new');
+    expect(quiz.title, 'New Quiz');
+    expect(quiz.questions.length, 1);
+    final sent = jsonDecode(body!) as Map<String, dynamic>;
+    expect(sent['title'], 'New Quiz');
+    expect((sent['questions'] as List).length, 1);
   });
 
   group('RemoteQuizRepository / LibraryProvider', () {

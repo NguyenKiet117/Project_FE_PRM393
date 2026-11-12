@@ -3,14 +3,28 @@ import 'package:provider/provider.dart';
 import '../core/theme.dart';
 import '../providers/auth_provider.dart';
 import '../providers/library_provider.dart';
-import '../providers/notification_provider.dart';
 import '../providers/quiz_provider.dart';
 import '../providers/theme_provider.dart';
 import '../widgets/common.dart';
 
-/// Hồ sơ người dùng (thiết kế Stitch không có màn này nên bố cục do nhóm tự làm).
-class ProfileScreen extends StatelessWidget {
+/// Hồ sơ người dùng.
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<AuthProvider>().refreshProfile();
+      }
+    });
+  }
 
   Future<void> _logout(BuildContext context) async {
     final ok = await showDialog<bool>(
@@ -31,15 +45,12 @@ class ProfileScreen extends StatelessWidget {
       ),
     );
     if (ok != true || !context.mounted) return;
-    // Lấy provider trước khi đóng màn (context sẽ mất hiệu lực sau pop).
     final auth = context.read<AuthProvider>();
     final lib = context.read<LibraryProvider>();
-    final notifs = context.read<NotificationProvider>();
     final quiz = context.read<QuizProvider>();
     Navigator.of(context).popUntil((r) => r.isFirst);
     quiz.exit();
     lib.clearProgress();
-    notifs.clear();
     await auth.signOut();
   }
 

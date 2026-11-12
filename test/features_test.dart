@@ -5,21 +5,18 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:provider/provider.dart';
-import 'package:smartquiz/models/app_notification.dart';
 import 'package:smartquiz/models/quiz_result.dart';
 import 'package:smartquiz/models/quiz_set.dart';
 import 'package:smartquiz/providers/auth_provider.dart';
 import 'package:smartquiz/providers/library_provider.dart';
-import 'package:smartquiz/providers/notification_provider.dart';
 import 'package:smartquiz/providers/quiz_provider.dart';
 import 'package:smartquiz/providers/theme_provider.dart';
+import 'package:smartquiz/screens/create_quiz_screen.dart';
 import 'package:smartquiz/screens/import_screen.dart';
-import 'package:smartquiz/screens/notifications_screen.dart';
 import 'package:smartquiz/screens/profile_screen.dart';
 import 'package:smartquiz/services/api_client.dart';
 import 'package:smartquiz/services/auth_service.dart';
 import 'package:smartquiz/services/file_picker_service.dart';
-import 'package:smartquiz/services/notification_repository.dart';
 import 'package:smartquiz/services/quiz_repository.dart';
 
 class _Picker implements FilePickerService {
@@ -35,6 +32,9 @@ class _ImportRepo extends FakeQuizRepository {
     required String filename,
     String? title,
     String? category,
+    String? description,
+    int? timeLimitMinutes,
+    String? difficulty,
   }) async =>
       QuizSet(
         id: 'new',
@@ -45,64 +45,13 @@ class _ImportRepo extends FakeQuizRepository {
       );
 }
 
-class _BadMarkRepo extends FakeNotificationRepository {
-  @override
-  Future<void> markRead(String id) async => throw const ApiException('x');
-}
-
 void _phone(WidgetTester t) {
-  t.view.physicalSize = const Size(1080, 2600);
+  t.view.physicalSize = const Size(1080, 4800);
   t.view.devicePixelRatio = 3;
   addTearDown(t.view.reset);
 }
 
 void main() {
-  group('Thông báo (model + provider)', () {
-    test('phân loại theo tiêu đề', () {
-      AppNotification n(String title) => AppNotification(
-          id: '1', title: title, message: '', userId: 'u', timestamp: DateTime.now());
-      expect(n('Daily Goal Achieved! 🎯').kind, NotifKind.reminder);
-      expect(n('Quiz Completed: Flutter').kind, NotifKind.achievement);
-      expect(n('Excel Import Successful').kind, NotifKind.importDone);
-      expect(n('New Quiz Available').kind, NotifKind.system);
-    });
-
-    test('parseServerTime: chuỗi ISO không múi giờ được coi là UTC', () {
-      expect(parseServerTime('2026-10-16T17:34:24').toUtc(), DateTime.utc(2026, 10, 16, 17, 34, 24));
-    });
-
-    test('parseServerTime: dạng mảng [y,m,d,h,mi,s]', () {
-      expect(parseServerTime([2026, 10, 16, 17, 34, 24]).toUtc(),
-          DateTime.utc(2026, 10, 16, 17, 34, 24));
-    });
-
-    test('load, đếm chưa đọc, đánh dấu đã đọc', () async {
-      final np = NotificationProvider(FakeNotificationRepository());
-      await np.load('u');
-      expect(np.items.length, 2);
-      expect(np.unread, 1);
-      expect(np.items.first.id, 'n1'); // mới nhất đứng đầu
-      await np.markRead('n1');
-      expect(np.unread, 0);
-    });
-
-    test('đánh dấu đã đọc thất bại thì hoàn lại', () async {
-      final np = NotificationProvider(_BadMarkRepo());
-      await np.load('u');
-      await np.markRead('n1');
-      expect(np.unread, 1);
-    });
-
-    test('bộ lọc Nhắc học / Hệ thống', () async {
-      final np = NotificationProvider(FakeNotificationRepository());
-      await np.load('u');
-      np.setFilter(NotifFilter.system);
-      expect(np.visible, isEmpty);
-      np.setFilter(NotifFilter.study);
-      expect(np.visible.length, 2);
-    });
-  });
-
   group('Thư viện (provider)', () {
     test('đã lưu, lịch sử và xóa bộ đề', () async {
       final lib = LibraryProvider(repository: FakeQuizRepository());
@@ -126,6 +75,25 @@ void main() {
       final created = await lib.importQuiz(PickedFile('a.csv', Uint8List.fromList([1])), title: 'Bộ mới');
       expect(created.title, 'Bộ mới');
       expect(lib.visible.first.id, 'new');
+    });
+
+    test('createQuiz tạo bộ đề thủ công', () async {
+      final lib = LibraryProvider(repository: FakeQuizRepository(), initial: const []);
+      final created = await lib.createQuiz(
+        title: 'Thủ công',
+        category: 'Demo',
+        questions: [
+          {
+            'questionText': 'Q1',
+            'optionA': 'A1',
+            'optionB': 'B1',
+            'correctAnswer': 'A',
+          }
+        ],
+      );
+      expect(created.title, 'Thủ công');
+      expect(lib.visible.first.title, 'Thủ công');
+      expect(created.questions.length, 1);
     });
   });
 
@@ -185,31 +153,33 @@ void main() {
     });
   });
 
-  group('NotificationsScreen', () {
-    testWidgets('bấm thông báo -> mất chấm chưa đọc', (t) async {
+  group('CreateQuizScreen', () {
+    testWidgets('tạo bộ đề thủ công thành công', (t) async {
       _phone(t);
-      final np = NotificationProvider(FakeNotificationRepository());
-      await np.load('u');
+      final lib = LibraryProvider(repository: FakeQuizRepository(), initial: const []);
       await t.pumpWidget(MultiProvider(
         providers: [
-          ChangeNotifierProvider.value(value: np),
-          ChangeNotifierProvider(create: (_) => AuthProvider(MockAuthService())),
+          ChangeNotifierProvider.value(value: lib),
         ],
-        child: const MaterialApp(home: Scaffold(body: NotificationsScreen())),
+        child: const MaterialApp(home: Scaffold(body: CreateQuizScreen())),
       ));
-      expect(find.byKey(const Key('unread_dot_n1')), findsOneWidget);
-      await t.tap(find.byKey(const Key('notif_n1')));
+
+      await t.enterText(find.byKey(const Key('create_quiz_title')), 'Quiz Test');
+      await t.enterText(find.byKey(const Key('create_quiz_category')), 'PRM393');
+      await t.enterText(find.byKey(const Key('q_text_0')), 'Câu hỏi 1?');
+      await t.enterText(find.byKey(const Key('q_opt_a_0')), 'Đáp án A');
+      await t.enterText(find.byKey(const Key('q_opt_b_0')), 'Đáp án B');
+
+      await t.tap(find.byKey(const Key('submit_create_quiz')));
       await t.pumpAndSettle();
-      expect(find.byKey(const Key('unread_dot_n1')), findsNothing);
-      expect(np.unread, 0);
+
+      expect(lib.visible.any((q) => q.title == 'Quiz Test'), isTrue);
     });
   });
 
   group('ProfileScreen', () {
     Future<(AuthProvider, ThemeProvider)> open(WidgetTester t) async {
       _phone(t);
-      // Không gọi signIn(): MockAuthService chờ 800ms bằng Timer, trong testWidgets
-      // đồng hồ giả không tự chạy nên sẽ treo mãi. Gán user trực tiếp cho nhanh.
       final auth = AuthProvider(MockAuthService())
         ..user = const AppUser(id: 'u1', name: 'Demo User', email: 'test@quiz.com');
       final theme = ThemeProvider();
@@ -218,7 +188,6 @@ void main() {
           ChangeNotifierProvider.value(value: auth),
           ChangeNotifierProvider.value(value: theme),
           ChangeNotifierProvider(create: (_) => LibraryProvider(repository: FakeQuizRepository())),
-          ChangeNotifierProvider(create: (_) => NotificationProvider(FakeNotificationRepository())),
           ChangeNotifierProvider(create: (_) => QuizProvider()),
         ],
         child: const MaterialApp(home: ProfileScreen()),

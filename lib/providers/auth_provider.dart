@@ -10,21 +10,26 @@ class AuthProvider extends ChangeNotifier {
   bool isLoading = false;
   String? error;
 
-  bool get requiresOtp => _service.requiresOtp;
-
-  Future<bool> sendOtp(String email) => _run(() => _service.sendOtp(email: email));
-
   Future<bool> signIn(String email, String password) =>
       _run(() async => user = await _service.signIn(email: email, password: password));
 
   Future<bool> register(String name, String email, String password,
-          {String otp = '', String confirmPassword = ''}) =>
+          {String confirmPassword = ''}) =>
       _run(() async => user = await _service.register(
           name: name,
           email: email,
           password: password,
-          otp: otp,
           confirmPassword: confirmPassword));
+
+  Future<void> refreshProfile() async {
+    final current = user;
+    if (current == null) return;
+    try {
+      final updated = await _service.fetchProfile(current.id);
+      user = updated;
+      notifyListeners();
+    } catch (_) {}
+  }
 
   Future<void> signOut() async {
     await _service.signOut();

@@ -9,7 +9,6 @@ import '../services/quiz_repository.dart';
 enum LoadState { idle, loading, loaded, error }
 
 /// Danh sách bộ đề (từ server) + tiến độ cục bộ cho Trang chủ.
-/// Tiến độ (best/last) hiện giữ trong RAM vì backend chưa có API lịch sử theo user.
 class LibraryProvider extends ChangeNotifier {
   LibraryProvider({required QuizRepository repository, List<QuizSet>? initial})
       : _repo = repository,
@@ -33,12 +32,16 @@ class LibraryProvider extends ChangeNotifier {
   DateTime? lastPracticed(String id) => _last[id];
   double progress(QuizSet q) => q.length == 0 ? 0 : bestCorrect(q.id) / q.length;
 
-  Future<void> load() async {
+  Future<void> load({String? category, String? difficulty, String? search}) async {
     state = LoadState.loading;
     error = null;
     notifyListeners();
     try {
-      final list = await _repo.fetchQuizzes();
+      final list = await _repo.fetchQuizzes(
+        category: category,
+        difficulty: difficulty,
+        search: search,
+      );
       final fav = {for (final q in _quizzes) if (q.isFavorite) q.id};
       _quizzes
         ..clear()
@@ -122,8 +125,7 @@ class LibraryProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Gửi bài làm lên server (server lưu lịch sử, tăng streak, tạo thông báo).
-  /// Thất bại thì chỉ báo nhẹ, không chặn người dùng xem kết quả.
+  /// Gửi bài làm lên server (server lưu lịch sử, tăng streak).
   Future<SubmissionAck?> syncResult(String quizId, String userId, QuizResult r) async {
     try {
       syncError = null;
@@ -137,9 +139,44 @@ class LibraryProvider extends ChangeNotifier {
   }
 
   /// Tạo bộ đề mới từ file Excel/CSV (server phân tích).
-  Future<QuizSet> importQuiz(PickedFile file, {String? title, String? category}) async {
+  Future<QuizSet> importQuiz(PickedFile file, {
+    String? title,
+    String? category,
+    String? description,
+    int? timeLimitMinutes,
+    String? difficulty,
+  }) async {
     final created = await _repo.importQuiz(
-        bytes: file.bytes, filename: file.name, title: title, category: category);
+      bytes: file.bytes,
+      filename: file.name,
+      title: title,
+      category: category,
+      description: description,
+      timeLimitMinutes: timeLimitMinutes,
+      difficulty: difficulty,
+    );
+    _quizzes.insert(0, created);
+    notifyListeners();
+    return created;
+  }
+
+  /// Tạo bộ đề thủ công qua API POST /api/quizzes.
+  Future<QuizSet> createQuiz({
+    required String title,
+    required String category,
+    String description = '',
+    int timeLimitMinutes = 15,
+    String difficulty = 'MEDIUM',
+    required List<Map<String, dynamic>> questions,
+  }) async {
+    final created = await _repo.createQuiz(
+      title: title,
+      category: category,
+      description: description,
+      timeLimitMinutes: timeLimitMinutes,
+      difficulty: difficulty,
+      questions: questions,
+    );
     _quizzes.insert(0, created);
     notifyListeners();
     return created;

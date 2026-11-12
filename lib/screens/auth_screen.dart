@@ -16,7 +16,6 @@ class _AuthScreenState extends State<AuthScreen> {
   final _name = TextEditingController();
   final _email = TextEditingController();
   final _password = TextEditingController();
-  final _otp = TextEditingController();
   final _confirm = TextEditingController();
   bool _isLogin = true;
   bool _obscure = true;
@@ -26,7 +25,6 @@ class _AuthScreenState extends State<AuthScreen> {
     _name.dispose();
     _email.dispose();
     _password.dispose();
-    _otp.dispose();
     _confirm.dispose();
     super.dispose();
   }
@@ -40,27 +38,13 @@ class _AuthScreenState extends State<AuthScreen> {
   void _toast(String msg) =>
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
 
-  Future<void> _sendOtp() async {
-    final err = Validators.email(_email.text);
-    if (err != null) {
-      _toast(err);
-      return;
-    }
-    final auth = context.read<AuthProvider>();
-    final ok = await auth.sendOtp(_email.text.trim());
-    if (!mounted) return;
-    _toast(ok
-        ? 'Đã gửi mã OTP tới ${_email.text.trim()}'
-        : (auth.error ?? 'Không gửi được mã OTP'));
-  }
-
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     final auth = context.read<AuthProvider>();
     final ok = _isLogin
         ? await auth.signIn(_email.text, _password.text)
         : await auth.register(_name.text, _email.text, _password.text,
-            otp: _otp.text, confirmPassword: _confirm.text);
+            confirmPassword: _confirm.text);
     if (!ok && mounted) _toast(auth.error ?? 'Lỗi');
     // Thành công: main.dart tự chuyển sang Home vì user != null.
   }
@@ -70,7 +54,6 @@ class _AuthScreenState extends State<AuthScreen> {
     final cs = Theme.of(context).colorScheme;
     final authState = context.watch<AuthProvider>();
     final loading = authState.isLoading;
-    final requiresOtp = authState.requiresOtp;
 
     return Scaffold(
       body: SafeArea(
@@ -126,7 +109,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                   ),
                           ),
                           _Labeled(
-                            label: 'Email trường / công việc',
+                            label: 'Email',
                             child: TextFormField(
                               key: const Key('auth_email'),
                               controller: _email,
@@ -134,7 +117,7 @@ class _AuthScreenState extends State<AuthScreen> {
                               textInputAction: TextInputAction.next,
                               decoration: const InputDecoration(
                                   prefixIcon: Icon(Icons.mail_outline),
-                                  hintText: 'ten@fpt.edu.vn'),
+                                  hintText: 'user@example.com'),
                               validator: Validators.email,
                             ),
                           ),
@@ -177,35 +160,13 @@ class _AuthScreenState extends State<AuthScreen> {
                                 key: const Key('auth_confirm'),
                                 controller: _confirm,
                                 obscureText: _obscure,
-                                textInputAction: TextInputAction.next,
+                                textInputAction: TextInputAction.done,
+                                onFieldSubmitted: (_) => _submit(),
                                 decoration: const InputDecoration(
                                   prefixIcon: Icon(Icons.lock_reset),
                                   hintText: '••••••••',
                                 ),
                                 validator: Validators.confirm(() => _password.text),
-                              ),
-                            ),
-                          if (!_isLogin && requiresOtp)
-                            _Labeled(
-                              label: 'Mã OTP (gửi qua email)',
-                              child: TextFormField(
-                                key: const Key('auth_otp'),
-                                controller: _otp,
-                                keyboardType: TextInputType.number,
-                                maxLength: 6,
-                                decoration: InputDecoration(
-                                  counterText: '',
-                                  prefixIcon: const Icon(Icons.pin_outlined),
-                                  hintText: '6 chữ số',
-                                  suffixIcon: TextButton(
-                                    key: const Key('auth_send_otp'),
-                                    onPressed: loading ? null : _sendOtp,
-                                    child: const Text('Gửi mã'),
-                                  ),
-                                ),
-                                validator: (v) => (v ?? '').trim().length == 6
-                                    ? null
-                                    : 'Nhập đủ 6 chữ số',
                               ),
                             ),
                           Container(
@@ -222,7 +183,7 @@ class _AuthScreenState extends State<AuthScreen> {
                               const SizedBox(width: 12),
                               Expanded(
                                   child: Text(
-                                      'Đăng nhập một chạm với email trường đã xác minh.',
+                                      'Đăng nhập tài khoản để luyện tập và lưu tiến độ học tập.',
                                       style: TextStyle(
                                           fontSize: 13, color: cs.onSurfaceVariant))),
                             ]),
